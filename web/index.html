@@ -403,7 +403,7 @@ const STATIC=ONLINE||typeof window.STATIC_DATA!=='undefined';
 function ageTxt(){if(!D||!D.ts)return '';const m=Math.max(0,Math.round((Date.now()-D.ts)/60000));
   return m<1?'الآن':m<60?`منذ ${m} دقيقة`:`منذ ${Math.floor(m/60)} ساعة و${m%60} دقيقة`;}
 function setLive(){$('#liveTxt').textContent='مباشر — آخر رصد من موقع الهيئة '+ageTxt();
-  $('#upd').textContent='آخر رصد: '+D.now.replace('T',' ').slice(0,16)+(D.next_minutes?` · الرصد التالي خلال ${D.next_minutes} دقيقة تقريباً`:'');}
+  $('#upd').textContent='آخر رصد: '+D.now.replace('T',' ').slice(0,16)+(D.next_minutes?` · يتم الرصد كل ${D.next_minutes>=60?'ساعة':D.next_minutes+' دقيقة'}`:'');}
 async function loadOnline(){
   try{const r=await fetch(window.DATA_URL+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;
     const nd=await r.json();const first=!D, changed=first||nd.now!==D.now;
@@ -422,7 +422,7 @@ function exportStatic(){
 }
 async function load(){
   if(ONLINE){$('#btnRefresh').style.display='none';$('#schedBox').style.display='none';
-    $('#btnExport').removeAttribute('href');$('#btnExport').style.cursor='pointer';$('#btnExport').onclick=exportStatic;
+    $('#btnExport').setAttribute('href','plots.csv');$('#btnExport').setAttribute('download','nuca_phase11.csv');
     return loadOnline();}
   if(STATIC){D=window.STATIC_DATA;applyLocalTarget();fillFilters();render();
     $('#btnRefresh').style.display='none';$('#schedBox').style.display='none';

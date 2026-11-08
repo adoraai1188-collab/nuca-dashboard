@@ -11,8 +11,8 @@ sys.path.insert(0, HERE)
 import collector, server  # noqa: E402
 
 STATE = os.path.join(HERE, "state")
-SITE = os.path.join(HERE, "site")
-INTERVAL_MIN = int(os.environ.get("INTERVAL_MIN", "30"))
+SITE = os.path.join(HERE, "docs")
+INTERVAL_MIN = int(os.environ.get("INTERVAL_MIN", "60"))
 DAILY_TARGET = int(os.environ.get("DAILY_TARGET", "1000"))
 TABLES = {"zones": "zones.tsv", "plots": "plots.tsv", "runs": "runs.tsv"}
 
@@ -61,13 +61,16 @@ def main():
 
     server.DB = db_path
     server.load_cfg = lambda: {"daily_target": DAILY_TARGET, "schedule": []}
-    data = server.build_data(with_plots=True)
+    data = server.build_data(with_plots=False)
     data["progress"] = {"running": False}
     data["ts"] = int(time.time() * 1000)
     data["next_minutes"] = INTERVAL_MIN
     os.makedirs(SITE, exist_ok=True)
     with open(os.path.join(SITE, "data.json"), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    with open(os.path.join(SITE, "plots.csv"), "wb") as f:
+        f.write(server.export_csv())
+    open(os.path.join(SITE, ".nojekyll"), "w").close()
     tpl = open(os.path.join(HERE, "web", "index.html"), encoding="utf-8").read()
     html = tpl.replace("/*__STATIC_DATA__*/", "window.DATA_URL='data.json';", 1)
     with open(os.path.join(SITE, "index.html"), "w", encoding="utf-8") as f:
