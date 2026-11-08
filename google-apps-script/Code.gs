@@ -86,10 +86,15 @@ function httpBatch_(reqs) {
   var out = [];
   for (var i = 0; i < reqs.length; i += CONFIG.CHUNK) {
     var part = reqs.slice(i, i + CONFIG.CHUNK).map(function (r) {
-      var h = { 'User-Agent': UA };
+      var h = { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'ar,en;q=0.8' };
       if (r.cookies) h.Cookie = cookieHeader_(r.cookies);
       var o = { url: r.url, method: r.payload ? 'post' : 'get', headers: h, muteHttpExceptions: true, followRedirects: true };
-      if (r.payload) o.payload = r.payload;
+      if (r.payload) {
+        // ترميز النموذج يدوياً مثل المتصفح تماماً
+        o.payload = Object.keys(r.payload).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(r.payload[k]); }).join('&').replace(/%20/g, '+');
+        o.contentType = 'application/x-www-form-urlencoded; charset=UTF-8';
+        h.Referer = r.url; h.Origin = 'https://lands.nuca.gov.eg';
+      }
       return o;
     });
     var res;
@@ -138,6 +143,11 @@ function rows_(html) {
       total_price: num_(text_(tds[8])), down: num_(text_(tds[9])), status: st ? text_(st[1]) : '' });
   }
   return out;
+}
+function sample_(html) {
+  var t = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html || '');
+  var body = String(html || '').replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '');
+  return ((t ? '[' + text_(t[1]) + '] ' : '') + text_(body).slice(0, 220)).replace(/[|]/g, '/');
 }
 function isGrid_(html) { return html.indexOf('grdPlots') >= 0 || html.indexOf('lblPlotStatus') >= 0; }
 
@@ -203,7 +213,7 @@ function collect() {
       jobs.push({ zid: z, plan: plan, step: 0, page: 1, jar: {}, html: null, rows: { avail: [], booked: [] }, state: 'get', done: false, fail: null });
     }
     // الجولات المتوازية
-    var diag = {};
+    var diag = {}, diagSample = '';
     var url = function (j) { return CONFIG.BASE + 'ViewZone.aspx?ID=' + j.zid; };
     var guard = 0;
     while (true) {
@@ -225,6 +235,7 @@ function collect() {
         if (r.code !== 200 || !isGrid_(r.text)) {
           roundFail++;
           var why = r.code === 200 ? 'page' : ('http' + r.code); diag[why] = (diag[why] || 0) + 1;
+          if (!diagSample) diagSample = r.code + ' ' + sample_(r.text);
           j.retry = (j.retry || 0) + 1;
           if (j.retry > 4) {
             if ((j.restarts || 0) < 1) { j.restarts = (j.restarts || 0) + 1; j.retry = 0; j.state = 'get'; j.step = 0; j.page = 1; j.jar = {}; j.rows = { avail: [], booked: [] }; }
@@ -320,7 +331,7 @@ function collect() {
     if (failed.length) note += (note ? ' · ' : '') + 'مناطق لم تكتمل: ' + failed.length;
     if (unverified) note += (note ? ' · ' : '') + 'قطع تُراجع في الرصد التالي: ' + unverified;
     var dk = Object.keys(diag);
-    if (dk.length) note += ' · أعطال مؤقتة: ' + dk.map(function (k) { return k + '×' + diag[k]; }).join('، ');
+    if (dk.length) note += ' · أعطال مؤقتة: ' + dk.map(function (k) { return k + '×' + diag[k]; }).join('، ') + (diagSample ? ' · عينة: ' + diagSample : '');
     st.runs.push({ id: (st.runs.length ? st.runs[st.runs.length - 1].id : 0) + 1, started: started, finished: ts, total: tot, booked: bk,
       new_booked: newB, released: rel, ok: failed.length ? 0 : 1, note: note });
     if (st.runs.length > 3000) st.runs = st.runs.slice(-3000);
