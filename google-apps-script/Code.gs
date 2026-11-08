@@ -16,7 +16,7 @@ var CONFIG = {
   PHASE: 'الحادية عشر',
   BASE: 'https://lands.nuca.gov.eg/ar/',
   SEED_URL: 'https://raw.githubusercontent.com/adoraai1188-collab/nuca-dashboard/main/state/', // تاريخ الرصد السابق
-  CHUNK: 25,                   // عدد الطلبات المتوازية
+  CHUNK: 6,                    // عدد الطلبات المتوازية (قليل حتى لا يرفض موقع الهيئة)
   MAX_RUN_MS: 5 * 60 * 1000,   // حد زمن الرصد الواحد
   TZ: 'Africa/Cairo',
   FOLDER: 'NUCA Dashboard'
@@ -94,7 +94,9 @@ function httpBatch_(reqs) {
     });
     var res;
     try { res = UrlFetchApp.fetchAll(part); }
-    catch (e) { res = part.map(function () { return null; }); }
+    catch (e) {
+      res = part.map(function (o) { try { var u = o.url, q = {}; for (var k in o) if (k !== 'url') q[k] = o[k]; return UrlFetchApp.fetch(u, q); } catch (e2) { return null; } });
+    }
     res.forEach(function (x) {
       if (!x) { out.push({ code: 0, text: '', setCookies: [] }); return; }
       var sc = x.getAllHeaders()['Set-Cookie'] || [];
@@ -201,6 +203,7 @@ function collect() {
       jobs.push({ zid: z, plan: plan, step: 0, page: 1, jar: {}, html: null, rows: { avail: [], booked: [] }, state: 'get', done: false, fail: null });
     }
     // الجولات المتوازية
+    var diag = {};
     var url = function (j) { return CONFIG.BASE + 'ViewZone.aspx?ID=' + j.zid; };
     var guard = 0;
     while (true) {
@@ -216,10 +219,19 @@ function collect() {
         else { h.__EVENTTARGET = 'ctl00$MainContent$grdPlots'; h.__EVENTARGUMENT = 'Page$' + j.page; }
         return { url: url(j), payload: h, cookies: j.jar };
       });
-      var res = httpBatch_(reqs);
+      var res = httpBatch_(reqs), roundFail = 0;
       active.forEach(function (j, i) {
         var r = res[i];
-        if (r.code !== 200 || !isGrid_(r.text)) { j.retry = (j.retry || 0) + 1; if (j.retry > 2) { j.done = true; j.fail = 'http ' + r.code; } return; }
+        if (r.code !== 200 || !isGrid_(r.text)) {
+          roundFail++;
+          var why = r.code === 200 ? 'page' : ('http' + r.code); diag[why] = (diag[why] || 0) + 1;
+          j.retry = (j.retry || 0) + 1;
+          if (j.retry > 4) {
+            if ((j.restarts || 0) < 1) { j.restarts = (j.restarts || 0) + 1; j.retry = 0; j.state = 'get'; j.step = 0; j.page = 1; j.jar = {}; j.rows = { avail: [], booked: [] }; }
+            else { j.done = true; j.fail = why; }
+          }
+          return;
+        }
         j.retry = 0; absorbCookies_(j.jar, r.setCookies); j.html = r.text;
         var list = j.plan[j.step];
         if (j.state === 'get') {
@@ -234,6 +246,7 @@ function collect() {
         if (j.step >= j.plan.length) { j.done = true; return; }
         j.state = 'switch';
       });
+      if (roundFail) Utilities.sleep(Math.min(6000, 1500 + roundFail * 200));
     }
     // دمج النتائج
     var ts = now_(), newB = 0, rel = 0, failed = [], verify = [];
@@ -278,8 +291,22 @@ function collect() {
         h['ctl00$MainContent$PlotType'] = 'rdShowAvailable'; h.__EVENTTARGET = ''; h.__EVENTARGUMENT = '';
         return { url: CONFIG.BASE + 'ViewZone.aspx?ID=' + v.j.zid, payload: h, cookies: v.j.jar };
       }));
+      var again = [];
+      vres.forEach(function (r, i) { if (r.code !== 200 || !isGrid_(r.text)) again.push(i); });
+      if (again.length) {
+        Utilities.sleep(2000);
+        var vres2 = httpBatch_(again.map(function (i) {
+          var v = vlist[i], h = hidden_(v.j.firstHtml);
+          h['ctl00$MainContent$txtPlotNumber'] = v.plot; h['ctl00$MainContent$btnSearch'] = 'بحث';
+          h['ctl00$MainContent$PlotType'] = 'rdShowAvailable'; h.__EVENTTARGET = ''; h.__EVENTARGUMENT = '';
+          return { url: CONFIG.BASE + 'ViewZone.aspx?ID=' + v.j.zid, payload: h, cookies: v.j.jar };
+        }));
+        again.forEach(function (i, k) { vres[i] = vres2[k]; });
+      }
       vlist.forEach(function (v, i) {
         var r = vres[i], hit = null;
+        if (r.code !== 200) { var w = 'search-http' + r.code; diag[w] = (diag[w] || 0) + 1; }
+        else if (!isGrid_(r.text)) diag['search-page'] = (diag['search-page'] || 0) + 1;
         if (r.code === 200) rows_(r.text).forEach(function (x) { if (x.plot === v.plot && x.block === v.block) hit = x; });
         if (!hit) { unverified++; return; }
         var p = st.plots[v.key];
@@ -292,6 +319,8 @@ function collect() {
     var note = firstRun ? 'تشغيل أولي (خط الأساس)' : '';
     if (failed.length) note += (note ? ' · ' : '') + 'مناطق لم تكتمل: ' + failed.length;
     if (unverified) note += (note ? ' · ' : '') + 'قطع تُراجع في الرصد التالي: ' + unverified;
+    var dk = Object.keys(diag);
+    if (dk.length) note += ' · أعطال مؤقتة: ' + dk.map(function (k) { return k + '×' + diag[k]; }).join('، ');
     st.runs.push({ id: (st.runs.length ? st.runs[st.runs.length - 1].id : 0) + 1, started: started, finished: ts, total: tot, booked: bk,
       new_booked: newB, released: rel, ok: failed.length ? 0 : 1, note: note });
     if (st.runs.length > 3000) st.runs = st.runs.slice(-3000);
