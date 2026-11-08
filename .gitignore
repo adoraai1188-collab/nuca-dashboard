@@ -1,0 +1,7 @@
+nuca.db
+log.txt
+config.json
+site/
+__pycache__/
+*.html.bak
+لوحة_التخصيصات.html

@@ -1,0 +1,52 @@
+name: رصد التخصيصات
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"     # كل 30 دقيقة (قد تتأخر GitHub بضع دقائق)
+  workflow_dispatch:            # زر تشغيل يدوي من تبويب Actions
+  push:
+    branches: [main]
+    paths: ["web/**", "collector.py", "server.py", "cloud_run.py", ".github/workflows/**"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: nuca-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: Africa/Cairo
+      INTERVAL_MIN: "30"
+      DAILY_TARGET: "1000"
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: رصد من موقع الهيئة
+        run: python cloud_run.py
+      - name: حفظ الحالة
+        run: |
+          git config user.name "nuca-bot"
+          git config user.email "nuca-bot@users.noreply.github.com"
+          git add state
+          git diff --cached --quiet || git commit -m "رصد $(date '+%Y-%m-%d %H:%M')"
+          git pull --rebase -X ours origin main || true
+          git push || true
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
