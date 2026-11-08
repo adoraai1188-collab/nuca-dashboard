@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>أداء التخصيصات - المرحلة الحادية عشر</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0f2a4a; --navy-2:#1d3d66; --gold:#c9a227; --gold-d:#a8851a; --gold-l:#f3e3a8;
+  --steel:#4a6f96; --bg:#f3f5f8; --card:#ffffff; --line:#e6e9ef;
+  --ink:#0b1a2b; --ink-2:#4b5563; --ink-3:#8a93a1;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --other:#c3c8d1;
+  --good:#16a34a; --bad:#dc2626;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Cairo,Tahoma,"Segoe UI",sans-serif;font-size:15px}
+.wrap{max-width:1240px;margin:0 auto;padding:16px}
+.top{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;border-radius:18px;padding:18px 22px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(15,42,74,.18)}
+.top h1{margin:0;font-size:26px;font-weight:800}
+.top .sub{color:#c8d3e2;font-size:13px;margin-top:2px}
+.live{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:#bff0cf;font-size:13px}
+.dot{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.7);animation:pulse 2s infinite}
+.dot.off{background:#9ca3af;animation:none}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:0;border-radius:12px;padding:9px 16px;font:inherit;font-weight:700;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.btn.gold{background:var(--gold);color:var(--navy)} .btn.gold:hover{background:#d9b23a}
+.btn.ghost{background:rgba(255,255,255,.12);color:#fff} .btn.ghost:hover{background:rgba(255,255,255,.2)}
+.btn:disabled{opacity:.6;cursor:wait}
+.upd{font-size:12px;color:#c8d3e2}
+.filters{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.f{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 12px;display:flex;flex-direction:column}
+.f label{font-size:11px;color:var(--ink-3);font-weight:700}
+.f select,.f input{border:0;font:inherit;font-weight:700;color:var(--ink);background:transparent;padding:2px 0;outline:none}
+.note{background:#fff8e1;border:1px solid var(--gold-l);color:#7a5d00;border-radius:12px;padding:8px 14px;font-size:13px;margin-bottom:12px;display:none}
+.prog{display:none;background:#e8eef7;border-radius:12px;padding:8px 14px;font-size:13px;color:var(--navy);margin-bottom:12px}
+.prog .bar{height:6px;background:#cfd9e8;border-radius:4px;margin-top:6px;overflow:hidden}
+.prog .bar i{display:block;height:100%;background:var(--steel);width:0;transition:width .4s}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:0 1px 3px rgba(15,42,74,.05);min-width:0}
+.card h3{margin:0 0 10px;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.card h3 small{font-size:12px;color:var(--ink-3);font-weight:600}
+.seg{display:inline-flex;background:var(--bg);border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;padding:3px 10px;border-radius:8px;cursor:pointer;color:var(--ink-2)}
+.seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.donutbox{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center}
+.legend{flex:1;min-width:220px}
+.legend .row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px;border-bottom:1px dashed var(--line)}
+.legend .row:last-child{border:0}
+.legend .sw{width:11px;height:11px;border-radius:50%;flex:none}
+.legend .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.legend .v{font-weight:800} .legend .p{color:var(--ink-3);font-size:12px;width:46px;text-align:left}
+.ringlist .row{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
+.ringlist .row b{font-weight:800}
+.ringlist .k{display:flex;gap:8px;align-items:center}
+.tile{border-radius:16px;padding:14px;text-align:center}
+.tile .n{font-size:28px;font-weight:800;line-height:1.2}
+.tile .l{font-size:13px;font-weight:700;opacity:.85}
+.t-blue{background:#e9f2fd;color:#184f95} .t-green{background:#e6f6ee;color:#0f6b3e}
+.t-gold{background:#fbf3dc;color:#8a6a0b} .t-red{background:#fdeaea;color:#a1262a}
+.t-navy{background:#e8ecf3;color:var(--navy)}
+.bookbar{margin-top:12px}
+.bookbar .lbl{display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--ink-2)}
+.bookbar .track{height:10px;background:#e8ebf0;border-radius:6px;overflow:hidden;margin-top:4px}
+.bookbar .track i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold));border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:12px;color:var(--ink-3);font-weight:700;text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+td{padding:8px 6px;border-bottom:1px solid #f0f2f5;white-space:nowrap}
+tr:hover td{background:#fafbfd}
+td.num,th.num{text-align:left;font-variant-numeric:tabular-nums}
+.minibar{height:7px;background:#eef0f4;border-radius:4px;width:110px;overflow:hidden;display:inline-block;vertical-align:middle;margin-inline-start:6px}
+.minibar i{display:block;height:100%;background:var(--steel);border-radius:4px}
+.scroll{overflow:auto;max-height:430px}
+.up{color:var(--good);font-weight:800}
+.muted{color:var(--ink-3);font-size:12px}
+.foot{display:flex;gap:10px;justify-content:center;margin:18px 0 6px;flex-wrap:wrap}
+.btn.navy{background:var(--navy);color:#fff;padding:12px 22px}
+.btn.line{background:#fff;color:var(--navy);border:1px solid var(--line);padding:12px 22px}
+#tip{position:fixed;pointer-events:none;background:var(--navy);color:#fff;font-size:13px;padding:7px 10px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.2);display:none;z-index:50;line-height:1.5}
+svg text{font-family:Cairo,Tahoma,sans-serif}
+.modal{position:fixed;inset:0;background:rgba(11,26,43,.45);display:none;align-items:center;justify-content:center;z-index:40}
+.modal .box{background:#fff;border-radius:18px;padding:22px;width:min(420px,92vw)}
+.modal label{display:block;font-weight:700;font-size:13px;margin:12px 0 4px}
+.modal input{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit}
+.empty{color:var(--ink-3);text-align:center;padding:30px 0;font-size:14px}
+.f select,.f input{min-width:0;width:100%;-webkit-appearance:none;appearance:none}
+html,body{overflow-x:hidden}
+@media (max-width:900px){.g2,.g3{grid-template-columns:1fr}.g4{grid-template-columns:1fr 1fr}.filters{grid-template-columns:1fr}}
+@media (max-width:600px){
+  .wrap{padding:10px}
+  .top{padding:14px 16px;border-radius:14px}
+  .top h1{font-size:19px;line-height:1.4}
+  .top .sub{font-size:11px}
+  .filters{grid-template-columns:1fr 1fr;gap:8px}
+  .filters .f:first-child{grid-column:1/-1}
+  .card{padding:12px;border-radius:14px}
+  .card h3{font-size:15px;flex-wrap:wrap}
+  .card h3 small{display:none}
+  .grid{gap:10px}
+  .tile{padding:10px}.tile .n{font-size:22px}.tile .l{font-size:12px}
+  #tiles2 .n{font-size:17px!important}
+  table{font-size:12.5px}
+  th{font-size:11px;padding:6px 3px}
+  td{padding:7px 3px}
+  .minibar{display:none}
+  td[title]{max-width:120px!important;white-space:normal}
+  .hide-m{display:none}
+  [data-m]{display:block!important;font-size:11px}
+  .empty{white-space:normal}
+  .legend{min-width:0;width:100%}
+  .donutbox{flex-direction:column;gap:8px}
+  .btn.navy,.btn.line{padding:10px 14px;font-size:13px}
+  .foot{flex-direction:column;align-items:stretch}
+}
+@media print{.actions,.foot,.filters .f select{display:none}body{background:#fff}.card{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="live"><span class="dot" id="dot"></span><span id="liveTxt">مباشر</span></div>
+      <h1>أداء التخصيصات — المرحلة الحادية عشر</h1>
+      <div class="sub">قطع الأراضي السكنية · هيئة المجتمعات العمرانية الجديدة · المصدر: lands.nuca.gov.eg</div>
+    </div>
+    <div class="actions">
+      <span class="upd" id="upd">—</span>
+      <button class="btn gold" id="btnRefresh">⟳ تحديث الآن</button>
+      <button class="btn ghost" id="btnCfg">⚙ الإعدادات</button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <div class="f"><label>اليوم</label><input type="date" id="fDate"></div>
+    <div class="f"><label>المدينة</label><select id="fCity"><option value="">كل المدن</option></select></div>
+    <div class="f"><label>المنطقة</label><select id="fRegion"><option value="">كل المناطق</option></select></div>
+  </div>
+
+  <div class="prog" id="prog"><span id="progTxt"></span><div class="bar"><i id="progBar"></i></div></div>
+  <div class="note" id="note"></div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3><span>توزيع التخصيصات على المدن</span>
+        <span class="seg" id="segDist"><button data-v="day" class="on">اليوم</button><button data-v="all">التراكمي</button></span></h3>
+      <div class="donutbox"><svg id="donut" width="220" height="220" viewBox="0 0 220 220"></svg><div class="legend" id="legend"></div></div>
+    </div>
+    <div class="card">
+      <h3><span>نسبة تحقيق الهدف اليومي</span><small id="tgtDate"></small></h3>
+      <div class="donutbox"><svg id="ring" width="220" height="220" viewBox="0 0 220 220"></svg>
+        <div class="legend ringlist" id="ringList"></div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3><span>التخصيصات خلال آخر 7 أيام</span><small id="wkSum"></small></h3>
+    <svg id="bars" width="100%" height="260" preserveAspectRatio="none"></svg>
+  </div>
+
+  <div class="grid g4" style="margin-top:14px" id="tiles"></div>
+  <div class="card bookbar" style="margin-top:14px">
+    <div class="lbl"><span>نسبة التخصيص من إجمالي القطع المطروحة</span><span id="pctTxt"></span></div>
+    <div class="track"><i id="pctBar"></i></div>
+  </div>
+
+  <div class="grid g4" style="margin-top:14px" id="tiles2"></div>
+
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <h3><span>موقف المدن</span><small>اضغط عنوان العمود للترتيب</small></h3>
+      <div class="scroll"><table id="tblCity"></table></div>
+    </div>
+    <div class="card">
+      <h3><span>أعلى المناطق إقبالاً</span><small>حسب عدد القطع المخصصة</small></h3>
+      <div class="scroll"><table id="tblRegion"></table></div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <h3><span>أحدث التخصيصات المرصودة</span><small id="recentN"></small></h3>
+      <div class="scroll"><table id="tblRecent"></table></div>
+    </div>
+    <div class="card">
+      <h3><span>سجل التحديثات</span></h3>
+      <div class="scroll"><table id="tblRuns"></table></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <a class="btn navy" id="btnExport" href="/api/export.csv">⬇ تصدير البيانات التفصيلية (Excel / CSV)</a>
+    <button class="btn line" onclick="window.print()">🖨 طباعة / PDF</button>
+  </div>
+  <div class="muted" style="text-align:center">يتم رصد التخصيص بمقارنة حالة كل قطعة بين تحديث وآخر؛ وقت التخصيص = وقت التحديث الذي ظهرت فيه القطعة «غير متاحة» لأول مرة.</div>
+</div>
+
+<div id="tip"></div>
+<div class="modal" id="modal"><div class="box">
+  <h3 style="margin:0">الإعدادات</h3>
+  <label>الهدف اليومي (عدد التخصيصات)</label><input type="number" id="cTarget" min="1">
+  <div id="schedBox"><label>مواعيد التحديث التلقائي (HH:MM مفصولة بفاصلة)</label><input id="cSched" placeholder="10:00, 15:00, 21:00"></div>
+  <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-start">
+    <button class="btn gold" id="cSave">حفظ</button><button class="btn line" id="cClose">إلغاء</button></div>
+</div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const fmtM=n=>n>=1e9?(n/1e9).toFixed(2)+' مليار':n>=1e6?(n/1e6).toFixed(1)+' مليون':fmt(n);
+const pct=(a,b)=>b?(a/b*100):0;
+const SER=['var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
+const NS='http://www.w3.org/2000/svg';
+let D=null, distMode='day', sortCity={k:'booked',d:-1};
+const tip=$('#tip');
+function showTip(e,html){tip.innerHTML=html;tip.style.display='block';tip.style.left=Math.min(e.clientX+14,innerWidth-220)+'px';tip.style.top=(e.clientY+14)+'px'}
+function hideTip(){tip.style.display='none'}
+function el(tag,attrs,parent){const n=document.createElementNS(NS,tag);for(const k in attrs)n.setAttribute(k,attrs[k]);parent&&parent.appendChild(n);return n}
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const addDays=(s,k)=>{const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+k);return d.toISOString().slice(0,10)};
+const shortDate=s=>{const [y,m,d]=s.split('-');return (+d)+'/'+(+m)};
+
+function zonesF(){
+  const c=$('#fCity').value, r=$('#fRegion').value;
+  return D.zones.filter(z=>(!c||z.city===c)&&(!r||z.region===r));
+}
+function dailyF(){
+  const ids=new Set(zonesF().map(z=>z.zone_id));
+  return D.daily.filter(x=>ids.has(x.zone_id));
+}
+function zoneById(id){return D.zones.find(z=>z.zone_id===id)}
+
+function fillFilters(){
+  const cities=[...new Set(D.zones.map(z=>z.city))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const fc=$('#fCity'), cur=fc.value;
+  fc.innerHTML='<option value="">كل المدن</option>'+cities.map(c=>`<option>${c}</option>`).join('');
+  fc.value=cur; fillRegions();
+}
+function fillRegions(){
+  const c=$('#fCity').value, fr=$('#fRegion'), cur=fr.value;
+  const regs=[...new Set(D.zones.filter(z=>!c||z.city===c).map(z=>(c?'':'')+z.region))].sort((a,b)=>a.localeCompare(b,'ar'));
+  fr.innerHTML='<option value="">كل المناطق</option>'+regs.map(r=>`<option>${r}</option>`).join('');
+  fr.value=regs.includes(cur)?cur:'';
+}
+
+function render(){
+  if(!D)return;
+  const date=$('#fDate').value||todayStr();
+  const Z=zonesF(), DY=dailyF();
+  const total=Z.reduce((a,z)=>a+z.total,0), booked=Z.reduce((a,z)=>a+z.booked,0);
+  const dayRows=DY.filter(x=>x.d===date), dayN=dayRows.reduce((a,x)=>a+x.n,0);
+  const dayV=dayRows.reduce((a,x)=>a+(x.v||0),0);
+  const target=D.config.daily_target;
+
+  // note
+  const nt=$('#note');
+  if(D.baseline){const b=D.baseline.slice(0,16).replace('T',' ');
+    nt.style.display='block';nt.innerHTML=`بدأ الرصد في <b>${b}</b>. التخصيصات التي تمت قبل ذلك تظهر في الإجماليات فقط ولا تُحسب ضمن التخصيصات اليومية.`;}
+  else {nt.style.display='block';nt.innerHTML='لا توجد بيانات بعد — اضغط «تحديث الآن» لإنشاء خط الأساس (قد يستغرق عدة دقائق).';}
+
+  // donut by city
+  const byCity={};
+  if(distMode==='day') dayRows.forEach(x=>{const c=zoneById(x.zone_id).city;byCity[c]=(byCity[c]||0)+x.n});
+  else Z.forEach(z=>{byCity[z.city]=(byCity[z.city]||0)+z.booked});
+  const groupKey=$('#fCity').value?'region':'city';
+  let parts;
+  if(groupKey==='region'){const m={};
+    if(distMode==='day') dayRows.forEach(x=>{const r=zoneById(x.zone_id).region;m[r]=(m[r]||0)+x.n});
+    else Z.forEach(z=>{m[z.region]=(m[z.region]||0)+z.booked}); parts=m;} else parts=byCity;
+  let arr=Object.entries(parts).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  const top=arr.slice(0,4), rest=arr.slice(4).reduce((a,x)=>a+x[1],0);
+  const segs=top.map((x,i)=>({name:x[0],v:x[1],c:SER[i]}));
+  if(rest>0)segs.push({name:'أخرى ('+(arr.length-4)+')',v:rest,c:'var(--other)'});
+  const sum=segs.reduce((a,s)=>a+s.v,0);
+  drawDonut(segs,sum,distMode==='day'?'تخصيص اليوم':'إجمالي مخصص');
+  $('#legend').innerHTML=segs.length?segs.map(s=>`<div class="row"><span class="sw" style="background:${s.c}"></span><span class="nm" title="${s.name}">${s.name}</span><span class="v">${fmt(s.v)}</span><span class="p">(${pct(s.v,sum).toFixed(0)}%)</span></div>`).join('')
+    :`<div class="empty">لا توجد تخصيصات ${distMode==='day'?'مرصودة في هذا اليوم':''}</div>`;
+
+  // target ring
+  $('#tgtDate').textContent=date;
+  drawRing(dayN,target);
+  $('#ringList').innerHTML=`
+   <div class="row"><span class="k"><span class="sw" style="background:var(--gold);width:11px;height:11px;border-radius:50%"></span>تخصيصات اليوم</span><b>${fmt(dayN)}</b></div>
+   <div class="row"><span class="k"><span class="sw" style="background:#d6dae1;width:11px;height:11px;border-radius:50%"></span>المتبقي للهدف</span><b>${fmt(Math.max(0,target-dayN))}</b></div>
+   <div class="row"><span class="k"><span class="sw" style="background:var(--navy);width:11px;height:11px;border-radius:50%"></span>الهدف اليومي</span><b>${fmt(target)}</b></div>
+   <div class="row"><span class="k">قيمة تخصيصات اليوم</span><b>$ ${fmtM(dayV)}</b></div>`;
+
+  // 7 days
+  const days=[...Array(7)].map((_,i)=>addDays(date,i-6));
+  const vals=days.map(d=>DY.filter(x=>x.d===d).reduce((a,x)=>a+x.n,0));
+  drawBars(days,vals,date,target);
+  const wk=vals.reduce((a,b)=>a+b,0);
+  $('#wkSum').textContent=`الإجمالي ${fmt(wk)} · المتوسط ${fmt(wk/7)} يومياً`;
+
+  // tiles
+  const avail=total-booked;
+  $('#tiles').innerHTML=[
+    ['t-navy','▦',fmt(total),'إجمالي القطع المطروحة'],
+    ['t-green','⌂',fmt(avail),'قطعة متاحة الآن'],
+    ['t-red','✓',fmt(booked),'إجمالي المخصص'],
+    ['t-gold','◷',fmt(dayN),'مخصص في اليوم المحدد']
+  ].map(t=>`<div class="tile ${t[0]}"><div>${t[1]}</div><div class="n">${t[2]}</div><div class="l">${t[3]}</div></div>`).join('');
+  const p=pct(booked,total);
+  $('#pctTxt').textContent=p.toFixed(1)+'% مخصص';$('#pctBar').style.width=p+'%';
+
+  const vb=Z.reduce((a,z)=>a+z.value_booked,0), db=Z.reduce((a,z)=>a+z.down_booked,0), ab=Z.reduce((a,z)=>a+z.area_booked,0);
+  const daysLeft=avail&&wk?Math.ceil(avail/(wk/7)):null;
+  $('#tiles2').innerHTML=[
+    ['t-blue','$ '+fmtM(vb),'قيمة القطع المخصصة (دولار)'],
+    ['t-blue','$ '+fmtM(db),'الدفعات المقدمة المستحقة (دولار)'],
+    ['t-blue',fmt(ab)+' م²','المساحة المخصصة'],
+    ['t-blue',daysLeft?fmt(daysLeft)+' يوم':'—','المدة المتوقعة لنفاد المتاح (بمعدل الأسبوع)']
+  ].map(t=>`<div class="tile ${t[0]}"><div class="n" style="font-size:22px">${t[1]}</div><div class="l">${t[2]}</div></div>`).join('');
+
+  // city table
+  const cityAgg={};
+  Z.forEach(z=>{const c=cityAgg[z.city]||(cityAgg[z.city]={name:z.city,total:0,booked:0,day:0,value:0});c.total+=z.total;c.booked+=z.booked;c.value+=z.value_booked});
+  dayRows.forEach(x=>{const c=cityAgg[zoneById(x.zone_id).city];if(c)c.day+=x.n});
+  let cr=Object.values(cityAgg).map(c=>({...c,avail:c.total-c.booked,rate:pct(c.booked,c.total)}));
+  cr.sort((a,b)=>{const k=sortCity.k;return (typeof a[k]==='string'?a[k].localeCompare(b[k],'ar'):a[k]-b[k])*sortCity.d});
+  const cols=[['name','المدينة'],['total','المطروح'],['booked','المخصص'],['avail','المتاح'],['day','اليوم'],['rate','نسبة التخصيص']];
+  $('#tblCity').innerHTML='<tr>'+cols.map(c=>`<th data-k="${c[0]}" class="${c[0]==='name'?'':'num'}${c[0]==='avail'?' hide-m':''}">${c[1]}${sortCity.k===c[0]?(sortCity.d<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>'+
+    cr.map(c=>`<tr><td>${c.name}</td><td class="num">${fmt(c.total)}</td><td class="num">${fmt(c.booked)}</td><td class="num hide-m">${fmt(c.avail)}</td><td class="num ${c.day?'up':''}">${c.day?'+'+fmt(c.day):'0'}</td><td class="num">${c.rate.toFixed(1)}%<span class="minibar"><i style="width:${c.rate}%"></i></span></td></tr>`).join('');
+  $('#tblCity').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;sortCity={k,d:sortCity.k===k?-sortCity.d:-1};render()});
+
+  // region table
+  const reg={};
+  Z.forEach(z=>{const k=z.city+'|'+z.region;const r=reg[k]||(reg[k]={city:z.city,region:z.region,total:0,booked:0});r.total+=z.total;r.booked+=z.booked});
+  const rr=Object.values(reg).map(r=>({...r,rate:pct(r.booked,r.total)})).sort((a,b)=>b.booked-a.booked||b.rate-a.rate);
+  $('#tblRegion').innerHTML='<tr><th>المنطقة</th><th class="hide-m">المدينة</th><th class="num">المخصص من المطروح</th><th class="num">النسبة</th></tr>'+
+    rr.map(r=>`<tr><td title="${r.region}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${r.region}<div class="muted" style="display:none" data-m>${r.city}</div></td><td class="muted hide-m">${r.city}</td><td class="num">${fmt(r.booked)} من ${fmt(r.total)}</td><td class="num">${r.rate.toFixed(0)}%<span class="minibar" style="width:70px"><i style="width:${r.rate}%;background:var(--gold)"></i></span></td></tr>`).join('');
+
+  // recent
+  const c=$('#fCity').value, rg=$('#fRegion').value;
+  const rec=D.recent.filter(x=>(!c||x.city===c)&&(!rg||x.region===rg));
+  $('#recentN').textContent=rec.length?`آخر ${rec.length}`:'';
+  $('#tblRecent').innerHTML=rec.length?'<tr><th>وقت الرصد</th><th>المدينة</th><th>المنطقة</th><th class="num">القطعة</th><th class="num hide-m">المساحة</th><th class="num">السعر $</th></tr>'+
+    rec.map(x=>`<tr><td class="muted">${x.ts.replace('T',' ').slice(5,16)}</td><td>${x.city}</td><td title="${x.region} — مربع ${x.block}" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${x.region}</td><td class="num">${x.plot}</td><td class="num hide-m">${fmt(x.area)}</td><td class="num">${fmtM(x.total_price)}</td></tr>`).join('')
+    :'<tr><td class="empty">ستظهر هنا التخصيصات الجديدة بدءاً من التحديث التالي لخط الأساس</td></tr>';
+
+  // runs
+  $('#tblRuns').innerHTML='<tr><th>الوقت</th><th class="num">المطروح</th><th class="num">المخصص</th><th class="num">جديد</th><th class="hide-m">ملاحظة</th></tr>'+
+    D.runs.map(r=>`<tr><td class="muted">${(r.finished||'').replace('T',' ').slice(0,16)}</td><td class="num">${fmt(r.total)}</td><td class="num">${fmt(r.booked)}</td><td class="num ${r.new_booked?'up':''}">${r.new_booked?'+'+fmt(r.new_booked):'0'}</td><td class="muted hide-m" style="white-space:normal">${r.note||(r.ok?'تم':'')}${r.released?` · أُلغي ${r.released}`:''}</td></tr>`).join('');
+
+  const last=D.runs[0];
+  $('#upd').textContent=last?('آخر تحديث: '+last.finished.replace('T',' ').slice(0,16)):'لم يتم التحديث بعد';
+}
+
+function drawDonut(segs,sum,label){
+  const s=$('#donut');s.innerHTML='';const cx=110,cy=110,R=92,r=62;
+  if(!sum){el('circle',{cx,cy,r:(R+r)/2,fill:'none',stroke:'#eef0f4','stroke-width':R-r},s);}
+  let a0=-Math.PI/2;const gap=segs.length>1?0.02:0;
+  segs.forEach(sg=>{const a=sg.v/sum*2*Math.PI;const a1=a0+a;
+    const p=arc(cx,cy,R,r,a0+gap/2,a1-gap/2);
+    const path=el('path',{d:p,fill:sg.c,style:'cursor:pointer'},s);
+    path.onmousemove=e=>showTip(e,`<b>${sg.name}</b><br>${fmt(sg.v)} تخصيص · ${pct(sg.v,sum).toFixed(1)}%`);
+    path.onmouseleave=hideTip;a0=a1;});
+  el('text',{x:cx,y:cy-18,'text-anchor':'middle','font-size':13,fill:'var(--ink-2)','font-weight':700},s).textContent='إجمالي';
+  el('text',{x:cx,y:cy+12,'text-anchor':'middle','font-size':32,'font-weight':800,fill:'var(--ink)'},s).textContent=fmt(sum);
+  el('text',{x:cx,y:cy+34,'text-anchor':'middle','font-size':12,fill:'var(--ink-3)','font-weight':700},s).textContent=label;
+}
+function arc(cx,cy,R,r,a0,a1){
+  if(a1-a0>=2*Math.PI-0.001)a1=a0+2*Math.PI-0.001;
+  const L=a1-a0>Math.PI?1:0,P=(rad,a)=>[cx+rad*Math.cos(a),cy+rad*Math.sin(a)];
+  const [x0,y0]=P(R,a0),[x1,y1]=P(R,a1),[x2,y2]=P(r,a1),[x3,y3]=P(r,a0);
+  return `M${x0},${y0}A${R},${R} 0 ${L} 1 ${x1},${y1}L${x2},${y2}A${r},${r} 0 ${L} 0 ${x3},${y3}Z`;
+}
+function drawRing(v,t){
+  const s=$('#ring');s.innerHTML='';const cx=110,cy=110,R=82,w=22,C=2*Math.PI*R;
+  el('circle',{cx,cy,r:R,fill:'none',stroke:'#eceef2','stroke-width':w},s);
+  const p=Math.min(v/t,1);
+  const g=el('defs',{},s);const lg=el('linearGradient',{id:'gg',x1:0,y1:0,x2:1,y2:1},g);
+  el('stop',{offset:'0','stop-color':'#e2bd45'},lg);el('stop',{offset:'1','stop-color':'#a8851a'},lg);
+  if(p>0)el('circle',{cx,cy,r:R,fill:'none',stroke:'url(#gg)','stroke-width':w,'stroke-linecap':p>0.06?'round':'butt','stroke-dasharray':`${C*p} ${C}`,transform:`rotate(-90 ${cx} ${cy})`},s);
+  el('text',{x:cx,y:cy+8,'text-anchor':'middle','font-size':36,'font-weight':800,fill:'var(--ink)'},s).textContent=Math.round(v/t*100)+'%';
+  el('text',{x:cx,y:cy+32,'text-anchor':'middle','font-size':13,fill:'var(--ink-3)','font-weight':700},s).textContent='من الهدف';
+}
+function drawBars(days,vals,sel,target){
+  const s=$('#bars');s.innerHTML='';const W=s.clientWidth||900,H=260;s.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const top=28,bot=34,ph=H-top-bot,mx=Math.max(...vals,1)*1.1;
+  for(let i=0;i<=3;i++){const y=top+ph*i/3;el('line',{x1:0,x2:W,y1:y,y2:y,stroke:'#eef0f4'},s)}
+  const n=days.length,slot=W/n,bw=Math.min(64,slot*0.5);
+  days.forEach((d,i)=>{
+    const x=W-(i+1)*slot+(slot-bw)/2; // RTL: oldest at right
+    const h=vals[i]/mx*ph,y=top+ph-h,isSel=d===sel;
+    const hit=el('rect',{x:W-(i+1)*slot,y:top,width:slot,height:ph,fill:'transparent'},s);
+    if(h>0){const r=Math.min(4,h/2);el('path',{d:`M${x},${top+ph}V${y+r}Q${x},${y} ${x+r},${y}H${x+bw-r}Q${x+bw},${y} ${x+bw},${y+r}V${top+ph}Z`,fill:isSel?'var(--gold-d)':'var(--gold-l)'},s);}
+    el('line',{x1:x,x2:x+bw,y1:top+ph,y2:top+ph,stroke:'#c9ced8'},s);
+    const t=el('text',{x:x+bw/2,y:y-7,'text-anchor':'middle','font-size':14,'font-weight':800,fill:'var(--ink)'},s);t.textContent=fmt(vals[i]);
+    const lb=el('text',{x:x+bw/2,y:H-10,'text-anchor':'middle','font-size':13,'font-weight':isSel?800:600,fill:isSel?'var(--ink)':'var(--ink-3)'},s);
+    lb.textContent=d===todayStr()?'اليوم':shortDate(d);
+    hit.onmousemove=e=>showTip(e,`<b>${d}</b><br>${fmt(vals[i])} تخصيص<br>${pct(vals[i],target).toFixed(0)}% من الهدف`);
+    hit.onmouseleave=hideTip;
+    hit.onclick=()=>{$('#fDate').value=d;render()};
+  });
+}
+
+/*__STATIC_DATA__*/
+const GAS=typeof window.GAS!=='undefined';
+const ONLINE=GAS||typeof window.DATA_URL!=='undefined';
+const gasCall=(fn)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn]());
+const STATIC=ONLINE||typeof window.STATIC_DATA!=='undefined';
+function ageTxt(){if(!D||!D.ts)return '';const m=Math.max(0,Math.round((Date.now()-D.ts)/60000));
+  return m<1?'الآن':m<60?`منذ ${m} دقيقة`:`منذ ${Math.floor(m/60)} ساعة و${m%60} دقيقة`;}
+function setLive(){$('#liveTxt').textContent='مباشر — آخر رصد من موقع الهيئة '+ageTxt();
+  $('#upd').textContent='آخر رصد: '+D.now.replace('T',' ').slice(0,16)+(D.next_minutes?` · يتم الرصد كل ${D.next_minutes>=60?'ساعة':D.next_minutes+' دقيقة'}`:'');}
+async function loadOnline(){
+  try{let nd;
+    if(GAS){nd=JSON.parse(await gasCall('getData'));if(!nd.zones)throw 0;}
+    else{const r=await fetch(window.DATA_URL+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;nd=await r.json();}const first=!D, changed=first||nd.now!==D.now;
+    if(changed){D=nd;applyLocalTarget();fillFilters();render();if(!first)flashDone({message:`رصد جديد ${nd.now.replace('T',' ').slice(11,16)}`});}
+    $('#dot').classList.remove('off');setLive();
+  }catch(e){$('#dot').classList.add('off');$('#liveTxt').textContent='تعذر الاتصال — تُعرض آخر بيانات محمّلة';}
+}
+function applyLocalTarget(){try{const t=+localStorage.getItem('nuca_target');if(t>0)D.config.daily_target=t;}catch(e){}}
+function exportStatic(){
+  const H=['المدينة','المنطقة','المربع','القطعة','المساحة م2','سعر المتر $','السعر الإجمالي $','الدفعة المقدمة $','الحالة','وقت رصد التخصيص','ملاحظة'];
+  const zs={};D.zones.forEach(z=>zs[z.zone_id]=z);
+  const esc=v=>{v=v==null?'':String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const rows=D.plots.map(p=>{const z=zs[p[0]];return [z.city,z.region,p[1],p[2],p[3],p[4],p[5],p[6],p[7]?'مخصصة':'متاحة',p[8]||'',p[9]?'قبل بدء الرصد':''].map(esc).join(',')});
+  const blob=new Blob(['\ufeff'+[H.join(','),...rows].join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='nuca_phase11_'+(D.now||'').slice(0,10)+'.csv';a.click();
+}
+async function load(){
+  if(ONLINE){$('#btnRefresh').style.display='none';$('#schedBox').style.display='none';
+    if(GAS){$('#btnExport').setAttribute('href',window.EXEC_URL+'?format=csv');$('#btnExport').setAttribute('target','_top');}
+    else{$('#btnExport').setAttribute('href','plots.csv');$('#btnExport').setAttribute('download','nuca_phase11.csv');}
+    return loadOnline();}
+  if(STATIC){D=window.STATIC_DATA;applyLocalTarget();fillFilters();render();
+    $('#btnRefresh').style.display='none';$('#schedBox').style.display='none';
+    $('#liveTxt').textContent='نسخة محفوظة — '+D.now.replace('T',' ').slice(0,16);$('#dot').classList.add('off');
+    $('#btnExport').removeAttribute('href');$('#btnExport').style.cursor='pointer';$('#btnExport').onclick=exportStatic;return;}
+  try{const r=await fetch('/api/data');D=await r.json();fillFilters();render();handleProgress(D.progress);$('#dot').classList.remove('off');$('#liveTxt').textContent='مباشر';}
+  catch(e){$('#dot').classList.add('off');$('#liveTxt').textContent='غير متصل بالخادم';}
+}
+let polling=null;
+function flashDone(s){const box=$('#prog');if(s.error)return;box.style.display='block';box.style.background='#e6f6ee';box.style.color='#0f6b3e';
+  $('#progTxt').textContent='✓ تم تحديث البيانات من موقع الهيئة — '+(s.message||'');$('#progBar').style.width='100%';
+  setTimeout(()=>{box.style.display='none';box.style.background='';box.style.color='';},8000);}
+function handleProgress(p){
+  const box=$('#prog');
+  if(p&&p.running){box.style.display='block';$('#progTxt').textContent=`⟳ جاري التحديث من موقع الهيئة الآن… تُعرض آخر بيانات محفوظة لحين الانتهاء (${p.done}/${p.total||'?'} منطقة)`;$('#liveTxt').textContent='جاري التحديث…';
+    $('#progBar').style.width=(p.total?p.done/p.total*100:5)+'%';$('#btnRefresh').disabled=true;
+    if(!polling)polling=setInterval(async()=>{const s=await (await fetch('/api/status')).json();if(!s.running){clearInterval(polling);polling=null;await load();flashDone(s);}else handleProgress(s)},3000);}
+  else{box.style.display=p&&p.error?'block':'none';if(p&&p.error)$('#progTxt').textContent='آخر تحديث فشل: '+p.error;$('#btnRefresh').disabled=false;}
+}
+$('#btnRefresh').onclick=async()=>{await fetch('/api/refresh',{method:'POST'});const s=await (await fetch('/api/status')).json();handleProgress(s)};
+$('#fDate').value=todayStr();
+$('#fDate').onchange=render;
+$('#fCity').onchange=()=>{fillRegions();render()};
+$('#fRegion').onchange=render;
+$('#segDist').querySelectorAll('button').forEach(b=>b.onclick=()=>{distMode=b.dataset.v;$('#segDist').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));render()});
+$('#btnCfg').onclick=()=>{$('#cTarget').value=D.config.daily_target;$('#cSched').value=D.config.schedule.join(', ');$('#modal').style.display='flex'};
+$('#cClose').onclick=()=>$('#modal').style.display='none';
+$('#cSave').onclick=async()=>{if(STATIC){try{localStorage.setItem('nuca_target',+$('#cTarget').value);}catch(e){}$('#modal').style.display='none';D.config.daily_target=+$('#cTarget').value;render();return;}await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({daily_target:+$('#cTarget').value,schedule:$('#cSched').value.split(',')})});$('#modal').style.display='none';load()};
+addEventListener('resize',()=>render());
+// تحديث فوري من الموقع عند فتح الصفحة وعند الرجوع إليها
+let gasRefreshing=false;
+async function refreshOnOpen(){
+  if(GAS){await loadOnline();if(gasRefreshing)return;
+    const age=D&&D.ts?(Date.now()-D.ts)/60000:1e9; if(age<30)return;
+    gasRefreshing=true;const box=$('#prog');box.style.display='block';$('#progBar').style.width='35%';
+    $('#progTxt').textContent='⟳ جاري الرصد من موقع الهيئة الآن (أقل من دقيقة)… تُعرض آخر بيانات محفوظة';
+    try{await gasCall('refreshIfStale');}catch(e){}
+    gasRefreshing=false;box.style.display='none';await loadOnline();return;}
+  if(ONLINE)return loadOnline();
+  if(STATIC)return;
+  try{const r=await (await fetch('/api/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({min_age:120})})).json();
+    handleProgress(r.progress);}catch(e){}
+}
+load().then(refreshOnOpen);
+if(ONLINE){setInterval(loadOnline,60*1000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshOnOpen()});}
+if(!STATIC){setInterval(load,5*60*1000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshOnOpen()});}
+</script>
+</body>
+</html>

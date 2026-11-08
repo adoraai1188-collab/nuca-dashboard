@@ -398,20 +398,23 @@ function drawBars(days,vals,sel,target){
 }
 
 /*__STATIC_DATA__*/
-const ONLINE=typeof window.DATA_URL!=='undefined';
+const GAS=typeof window.GAS!=='undefined';
+const ONLINE=GAS||typeof window.DATA_URL!=='undefined';
+const gasCall=(fn)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn]());
 const STATIC=ONLINE||typeof window.STATIC_DATA!=='undefined';
 function ageTxt(){if(!D||!D.ts)return '';const m=Math.max(0,Math.round((Date.now()-D.ts)/60000));
   return m<1?'الآن':m<60?`منذ ${m} دقيقة`:`منذ ${Math.floor(m/60)} ساعة و${m%60} دقيقة`;}
 function setLive(){$('#liveTxt').textContent='مباشر — آخر رصد من موقع الهيئة '+ageTxt();
   $('#upd').textContent='آخر رصد: '+D.now.replace('T',' ').slice(0,16)+(D.next_minutes?` · يتم الرصد كل ${D.next_minutes>=60?'ساعة':D.next_minutes+' دقيقة'}`:'');}
 async function loadOnline(){
-  try{const r=await fetch(window.DATA_URL+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;
-    const nd=await r.json();const first=!D, changed=first||nd.now!==D.now;
+  try{let nd;
+    if(GAS){nd=JSON.parse(await gasCall('getData'));if(!nd.zones)throw 0;}
+    else{const r=await fetch(window.DATA_URL+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;nd=await r.json();}const first=!D, changed=first||nd.now!==D.now;
     if(changed){D=nd;applyLocalTarget();fillFilters();render();if(!first)flashDone({message:`رصد جديد ${nd.now.replace('T',' ').slice(11,16)}`});}
     $('#dot').classList.remove('off');setLive();
   }catch(e){$('#dot').classList.add('off');$('#liveTxt').textContent='تعذر الاتصال — تُعرض آخر بيانات محمّلة';}
 }
-function applyLocalTarget(){const t=+localStorage.getItem('nuca_target');if(t>0)D.config.daily_target=t;}
+function applyLocalTarget(){try{const t=+localStorage.getItem('nuca_target');if(t>0)D.config.daily_target=t;}catch(e){}}
 function exportStatic(){
   const H=['المدينة','المنطقة','المربع','القطعة','المساحة م2','سعر المتر $','السعر الإجمالي $','الدفعة المقدمة $','الحالة','وقت رصد التخصيص','ملاحظة'];
   const zs={};D.zones.forEach(z=>zs[z.zone_id]=z);
@@ -422,7 +425,8 @@ function exportStatic(){
 }
 async function load(){
   if(ONLINE){$('#btnRefresh').style.display='none';$('#schedBox').style.display='none';
-    $('#btnExport').setAttribute('href','plots.csv');$('#btnExport').setAttribute('download','nuca_phase11.csv');
+    if(GAS){$('#btnExport').setAttribute('href',window.EXEC_URL+'?format=csv');$('#btnExport').setAttribute('target','_top');}
+    else{$('#btnExport').setAttribute('href','plots.csv');$('#btnExport').setAttribute('download','nuca_phase11.csv');}
     return loadOnline();}
   if(STATIC){D=window.STATIC_DATA;applyLocalTarget();fillFilters();render();
     $('#btnRefresh').style.display='none';$('#schedBox').style.display='none';
@@ -450,10 +454,17 @@ $('#fRegion').onchange=render;
 $('#segDist').querySelectorAll('button').forEach(b=>b.onclick=()=>{distMode=b.dataset.v;$('#segDist').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));render()});
 $('#btnCfg').onclick=()=>{$('#cTarget').value=D.config.daily_target;$('#cSched').value=D.config.schedule.join(', ');$('#modal').style.display='flex'};
 $('#cClose').onclick=()=>$('#modal').style.display='none';
-$('#cSave').onclick=async()=>{if(STATIC){localStorage.setItem('nuca_target',+$('#cTarget').value);$('#modal').style.display='none';D.config.daily_target=+$('#cTarget').value;render();return;}await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({daily_target:+$('#cTarget').value,schedule:$('#cSched').value.split(',')})});$('#modal').style.display='none';load()};
+$('#cSave').onclick=async()=>{if(STATIC){try{localStorage.setItem('nuca_target',+$('#cTarget').value);}catch(e){}$('#modal').style.display='none';D.config.daily_target=+$('#cTarget').value;render();return;}await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({daily_target:+$('#cTarget').value,schedule:$('#cSched').value.split(',')})});$('#modal').style.display='none';load()};
 addEventListener('resize',()=>render());
 // تحديث فوري من الموقع عند فتح الصفحة وعند الرجوع إليها
+let gasRefreshing=false;
 async function refreshOnOpen(){
+  if(GAS){await loadOnline();if(gasRefreshing)return;
+    const age=D&&D.ts?(Date.now()-D.ts)/60000:1e9; if(age<30)return;
+    gasRefreshing=true;const box=$('#prog');box.style.display='block';$('#progBar').style.width='35%';
+    $('#progTxt').textContent='⟳ جاري الرصد من موقع الهيئة الآن (أقل من دقيقة)… تُعرض آخر بيانات محفوظة';
+    try{await gasCall('refreshIfStale');}catch(e){}
+    gasRefreshing=false;box.style.display='none';await loadOnline();return;}
   if(ONLINE)return loadOnline();
   if(STATIC)return;
   try{const r=await (await fetch('/api/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({min_age:120})})).json();
@@ -461,7 +472,7 @@ async function refreshOnOpen(){
 }
 load().then(refreshOnOpen);
 if(ONLINE){setInterval(loadOnline,60*1000);
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadOnline()});}
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshOnOpen()});}
 if(!STATIC){setInterval(load,5*60*1000);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshOnOpen()});}
 </script>
