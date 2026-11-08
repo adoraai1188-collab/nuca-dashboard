@@ -399,17 +399,41 @@ function drawBars(days,vals,sel,target){
 
 /*__STATIC_DATA__*/
 const GAS=typeof window.GAS!=='undefined';
-const ONLINE=GAS||typeof window.DATA_URL!=='undefined';
+const CSVM=typeof window.CSV_URL!=='undefined';
+function parseCSV(t){const rows=[];let row=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];
+  if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++;}else q=false;}else f+=c;}
+  else if(c==='"')q=true;else if(c===','){row.push(f);f='';}else if(c==='\n'){row.push(f.replace(/\r$/,''));rows.push(row);row=[];f='';}else f+=c;}
+  if(f||row.length){row.push(f);rows.push(row);}return rows;}
+function csvToData(text){
+  const R=parseCSV(text.replace(/^\ufeff/,'')).slice(1).filter(r=>r.length>=10);
+  const zs={},daily={},recent=[];let base=null,last=null;
+  R.forEach(r=>{const [city,region,block,plot,area,mp,tp,dp,stt,at,note]=r;const zid=city+'|'+region;
+    const z=zs[zid]||(zs[zid]={zone_id:zid,city,region,meter_egp:0,total:0,booked:0,area:0,area_booked:0,value_booked:0,down_booked:0});
+    z.total++;z.area+=+area||0;
+    if(stt==='مخصصة'){z.booked++;z.area_booked+=+area||0;z.value_booked+=+tp||0;z.down_booked+=+dp||0;
+      if(note){if(at&&(!base||at<base))base=at;}
+      else if(at){const d=at.slice(0,10),k=d+'|'+zid,o=daily[k]||(daily[k]={d,zone_id:zid,n:0,v:0});o.n++;o.v+=+tp||0;
+        recent.push({ts:at,city,region,block,plot,area:+area||0,total_price:+tp||0});if(!last||at>last)last=at;}}});
+  recent.sort((a,b)=>a.ts<b.ts?1:-1);
+  const now=new Date(),pad=n=>String(n).padStart(2,'0');
+  const nowS=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'T'+pad(now.getHours())+':'+pad(now.getMinutes())+':00';
+  return {zones:Object.values(zs),daily:Object.values(daily),recent:recent.slice(0,100),runs:[],baseline:base,
+    config:{daily_target:1000,schedule:[]},progress:{running:false},now:nowS,ts:Date.now(),next_minutes:30,csv:true,last_alloc:last};}
+const ONLINE=GAS||CSVM||typeof window.DATA_URL!=='undefined';
 const gasCall=(fn)=>new Promise((res,rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn]());
 const STATIC=ONLINE||typeof window.STATIC_DATA!=='undefined';
 function ageTxt(){if(!D||!D.ts)return '';const m=Math.max(0,Math.round((Date.now()-D.ts)/60000));
   return m<1?'الآن':m<60?`منذ ${m} دقيقة`:`منذ ${Math.floor(m/60)} ساعة و${m%60} دقيقة`;}
-function setLive(){$('#liveTxt').textContent='مباشر — آخر رصد من موقع الهيئة '+ageTxt();
+function setLive(){if(CSVM){const t=new Date(),p=n=>String(n).padStart(2,'0');
+    $('#liveTxt').textContent='مباشر — يتحدث تلقائياً من خادم الرصد';
+    $('#upd').textContent='آخر تحميل: '+p(t.getHours())+':'+p(t.getMinutes())+(D.last_alloc?' · آخر تخصيص مرصود: '+D.last_alloc.replace('T',' ').slice(5,16):'')+' · الرصد كل 30 دقيقة';return;}
+  $('#liveTxt').textContent='مباشر — آخر رصد من موقع الهيئة '+ageTxt();
   $('#upd').textContent='آخر رصد: '+D.now.replace('T',' ').slice(0,16)+(D.next_minutes?` · يتم الرصد كل ${D.next_minutes>=60?'ساعة':D.next_minutes+' دقيقة'}`:'');}
 async function loadOnline(){
   try{let nd;
-    if(GAS){nd=JSON.parse(await gasCall('getData'));if(!nd.zones)throw 0;}
-    else{const r=await fetch(window.DATA_URL+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;nd=await r.json();}const first=!D, changed=first||nd.now!==D.now;
+    if(CSVM){const r=await fetch(window.CSV_URL+'&t='+Date.now(),{cache:'no-store',credentials:'omit'});if(!r.ok)throw 0;nd=csvToData(await r.text());if(!nd.zones.length)throw 0;}
+    else if(GAS){nd=JSON.parse(await gasCall('getData'));if(!nd.zones)throw 0;}
+    else{const r=await fetch(window.DATA_URL+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;nd=await r.json();}const sumB=x=>x.zones.reduce((a,z)=>a+z.booked,0);const first=!D, changed=first||(CSVM?sumB(nd)!==sumB(D):nd.now!==D.now);
     if(changed){D=nd;applyLocalTarget();fillFilters();render();if(!first)flashDone({message:`رصد جديد ${nd.now.replace('T',' ').slice(11,16)}`});}
     $('#dot').classList.remove('off');setLive();
   }catch(e){$('#dot').classList.add('off');$('#liveTxt').textContent='تعذر الاتصال — تُعرض آخر بيانات محمّلة';}
@@ -425,7 +449,9 @@ function exportStatic(){
 }
 async function load(){
   if(ONLINE){$('#btnRefresh').style.display='none';$('#schedBox').style.display='none';
-    if(GAS){$('#btnExport').setAttribute('href',window.EXEC_URL+'?format=csv');$('#btnExport').setAttribute('target','_top');}
+    if(CSVM){$('#btnExport').setAttribute('href',window.CSV_URL);$('#btnExport').setAttribute('target','_blank');
+      const rc=$('#tblRuns').closest('.card');if(rc)rc.style.display='none';}
+    else if(GAS){$('#btnExport').setAttribute('href',window.EXEC_URL+'?format=csv');$('#btnExport').setAttribute('target','_top');}
     else{$('#btnExport').setAttribute('href','plots.csv');$('#btnExport').setAttribute('download','nuca_phase11.csv');}
     return loadOnline();}
   if(STATIC){D=window.STATIC_DATA;applyLocalTarget();fillFilters();render();
